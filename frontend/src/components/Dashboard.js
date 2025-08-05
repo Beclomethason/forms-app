@@ -5,7 +5,7 @@ import {
   Paper, Avatar, IconButton, Divider, Stack, useTheme, useMediaQuery,
   Drawer, List, ListItem, ListItemIcon, ListItemText, Fab, Zoom,
   Menu, MenuItem, MoreVert as MoreVertIcon, Share as ShareIcon,
-  Accordion, AccordionSummary, AccordionDetails, ExpandMore as ExpandMoreIcon
+  Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -18,9 +18,11 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon,
   BarChart as BarChartIcon,
-  FileCopy as FileCopyIcon
+  FileCopy as FileCopyIcon,
+  ExpandMore as ExpandMoreIcon  // Import from @mui/icons-material
 } from '@mui/icons-material';
 import { formsAPI, responsesAPI } from '../services/api';
+
 
 const Dashboard = ({ user, onLogout, onCreateForm }) => {
   const [forms, setForms] = useState([]);
