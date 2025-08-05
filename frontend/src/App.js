@@ -7,6 +7,7 @@ import CreateForm from './components/CreateForm';
 import PublicForm from './components/PublicForm';
 import './App.css';
 import { useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 function App() {
   const [user, setUser] = useState(null);
   const [showRegister, setShowRegister] = useState(false);
