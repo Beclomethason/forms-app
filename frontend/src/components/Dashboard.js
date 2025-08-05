@@ -4,9 +4,10 @@ import {
   Grid, Card, CardContent, Box, Chip, LinearProgress,
   Paper, Avatar, IconButton, Divider, Stack, useTheme, useMediaQuery,
   Drawer, List, ListItem, ListItemIcon, ListItemText, Fab, Zoom,
-  Menu, MenuItem, MoreVert as MoreVertIcon, Share as ShareIcon,
-  Accordion, AccordionSummary, AccordionDetails
+  Menu, MenuItem, Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
+
+// Import ALL icons from @mui/icons-material (not @mui/material)
 import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
@@ -19,10 +20,12 @@ import {
   Close as CloseIcon,
   BarChart as BarChartIcon,
   FileCopy as FileCopyIcon,
-  ExpandMore as ExpandMoreIcon  // Import from @mui/icons-material
+  MoreVert as MoreVertIcon,    // Import from @mui/icons-material
+  Share as ShareIcon,          // Import from @mui/icons-material  
+  ExpandMore as ExpandMoreIcon // Import from @mui/icons-material
 } from '@mui/icons-material';
-import { formsAPI, responsesAPI } from '../services/api';
 
+import { formsAPI, responsesAPI } from '../services/api';
 
 const Dashboard = ({ user, onLogout, onCreateForm }) => {
   const [forms, setForms] = useState([]);
