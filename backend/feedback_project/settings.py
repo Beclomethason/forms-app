@@ -99,8 +99,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # Temporary for setup
+# CORS settings - FIXED for your frontend URL
+CORS_ALLOWED_ORIGINS = [
+    "https://forms-app-its5.onrender.com",  # Your actual frontend URL
+]
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = [
