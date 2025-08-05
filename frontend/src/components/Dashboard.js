@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   AppBar, Toolbar, Typography, Button, Container, 
   Grid, Card, CardContent, Box, Chip, LinearProgress,
-  Paper, Avatar, IconButton, Divider, Stack
+  Paper, Avatar, IconButton, Divider, Stack, useTheme, useMediaQuery,
+  Drawer, List, ListItem, ListItemIcon, ListItemText, Fab, Zoom,
+  Menu, MenuItem, MoreVert as MoreVertIcon, Share as ShareIcon,
+  Accordion, AccordionSummary, AccordionDetails, ExpandMore as ExpandMoreIcon
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -11,7 +14,11 @@ import {
   Download as DownloadIcon,
   Assessment as AssessmentIcon,
   ExitToApp as LogoutIcon,
-  Dashboard as DashboardIcon
+  Dashboard as DashboardIcon,
+  Menu as MenuIcon,
+  Close as CloseIcon,
+  BarChart as BarChartIcon,
+  FileCopy as FileCopyIcon
 } from '@mui/icons-material';
 import { formsAPI, responsesAPI } from '../services/api';
 
@@ -21,6 +28,12 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
   const [selectedForm, setSelectedForm] = useState(null);
   const [responses, setResponses] = useState([]);
   const [copySuccess, setCopySuccess] = useState({});
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [formMenuAnchor, setFormMenuAnchor] = useState({});
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     fetchForms();
@@ -49,6 +62,9 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
   const handleViewResponses = async (form) => {
     setSelectedForm(form);
     await fetchResponses(form.id);
+    if (isMobile) {
+      setMobileDrawerOpen(true);
+    }
   };
 
   const getPublicFormUrl = (formId) => {
@@ -68,6 +84,14 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
     }
   };
 
+  const handleFormMenuClick = (event, formId) => {
+    setFormMenuAnchor({...formMenuAnchor, [formId]: event.currentTarget});
+  };
+
+  const handleFormMenuClose = (formId) => {
+    setFormMenuAnchor({...formMenuAnchor, [formId]: null});
+  };
+
   const createSummary = () => {
     if (!selectedForm || responses.length === 0) return [];
 
@@ -82,7 +106,7 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
           const option = answer.answer_text || 'No Answer';
           voteCounts[option] = (voteCounts[option] || 0) + 1;
         });
-  //const option=answer.answer_text || 'No Answer';
+
         return {
           question: question.text,
           type: 'multiple_choice',
@@ -108,6 +132,136 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
 
   const summaryData = createSummary();
 
+  // Mobile drawer content for analytics
+  const AnalyticsDrawer = () => (
+    <Drawer
+      anchor="bottom"
+      open={mobileDrawerOpen}
+      onClose={() => setMobileDrawerOpen(false)}
+      PaperProps={{
+        sx: {
+          height: '90vh',
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+        }
+      }}
+    >
+      <Box sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Analytics: {selectedForm?.title}
+          </Typography>
+          <IconButton onClick={() => setMobileDrawerOpen(false)}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        {renderAnalyticsContent()}
+      </Box>
+    </Drawer>
+  );
+
+  const renderAnalyticsContent = () => (
+    <>
+      {responses.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <AssessmentIcon sx={{ fontSize: 64, color: '#cbd5e0', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary">
+            No responses yet
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Share your form to start collecting feedback
+          </Typography>
+        </Box>
+      ) : (
+        <Box>
+          <Box sx={{ mb: 3, p: 2, bgcolor: '#f7fafc', borderRadius: 2 }}>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#2d3748' }}>
+              {responses.length}
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Total Responses Collected
+            </Typography>
+          </Box>
+          
+          {responses.length > 0 && (
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={async () => {
+                try {
+                  await responsesAPI.exportCSV(selectedForm.id);
+                } catch (error) {
+                  console.error('Export failed:', error);
+                }
+              }}
+              sx={{ mb: 3, borderRadius: 2 }}
+            >
+              Export CSV
+            </Button>
+          )}
+          
+          {summaryData.map((questionSummary, index) => (
+            <Accordion key={index} sx={{ mb: 2, borderRadius: 2 }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Q{index + 1}: {questionSummary.question}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                {questionSummary.type === 'multiple_choice' ? (
+                  <Box>
+                    {questionSummary.options.map((option, optionIndex) => (
+                      <Box key={optionIndex} sx={{ mb: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {option.option}
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
+                              {option.count} votes
+                            </Typography>
+                            <Chip 
+                              label={`${option.percentage}%`} 
+                              size="small" 
+                              sx={{ bgcolor: '#dbeafe', color: '#1e40af' }}
+                            />
+                          </Box>
+                        </Box>
+                        <LinearProgress 
+                          variant="determinate" 
+                          value={parseFloat(option.percentage)} 
+                          sx={{ 
+                            height: 6, 
+                            borderRadius: 3,
+                            bgcolor: '#e5e7eb',
+                            '& .MuiLinearProgress-bar': {
+                              bgcolor: '#3b82f6'
+                            }
+                          }}
+                        />
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                    {questionSummary.textResponses.map((response, responseIndex) => (
+                      <Box key={responseIndex} sx={{ mb: 1, p: 2, bgcolor: '#f9fafb', borderRadius: 1, borderLeft: '4px solid #3b82f6' }}>
+                        <Typography variant="body2">
+                          {response}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          ))}
+        </Box>
+      )}
+    </>
+  );
+
   if (loading) {
     return (
       <Box sx={{ width: '100%', mt: 4 }}>
@@ -121,7 +275,7 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
 
   return (
     <Box sx={{ flexGrow: 1, backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
-      {/* Enhanced Header */}
+      {/* Mobile-Optimized Header */}
       <AppBar 
         position="static" 
         sx={{ 
@@ -129,79 +283,119 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
           boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
         }}
       >
-        <Toolbar sx={{ py: 1 }}>
+        <Toolbar sx={{ py: 1, px: isMobile ? 2 : 3 }}>
           <DashboardIcon sx={{ mr: 2 }} />
-          <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
-            Feedback Dashboard
+          <Typography variant={isMobile ? "h6" : "h5"} component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
+            {isMobile ? "Dashboard" : "Feedback Dashboard"}
           </Typography>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)' }}>
-              {user.username.charAt(0).toUpperCase()}
-            </Avatar>
-            <Box sx={{ textAlign: 'right' }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                {user.username}
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                Administrator
-              </Typography>
-            </Box>
-            <IconButton color="inherit" onClick={onLogout}>
-              <LogoutIcon />
-            </IconButton>
-          </Stack>
+          
+          {!isMobile ? (
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)' }}>
+                {user.username.charAt(0).toUpperCase()}
+              </Avatar>
+              <Box sx={{ textAlign: 'right' }}>
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                  {user.username}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                  Administrator
+                </Typography>
+              </Box>
+              <IconButton color="inherit" onClick={onLogout}>
+                <LogoutIcon />
+              </IconButton>
+            </Stack>
+          ) : (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 32, height: 32 }}>
+                {user.username.charAt(0).toUpperCase()}
+              </Avatar>
+              <IconButton color="inherit" onClick={onLogout} size="small">
+                <LogoutIcon />
+              </IconButton>
+            </Stack>
+          )}
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3, textAlign: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+      <Container maxWidth="xl" sx={{ py: isMobile ? 2 : 4 }}>
+        {/* Mobile-Optimized Stats Cards */}
+        <Grid container spacing={isMobile ? 2 : 3} sx={{ mb: isMobile ? 2 : 4 }}>
+          <Grid item xs={12} sm={4}>
+            <Paper sx={{ 
+              p: isMobile ? 2 : 3, 
+              textAlign: 'center', 
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+              color: 'white',
+              borderRadius: 2
+            }}>
+              <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 'bold' }}>
                 {forms.length}
               </Typography>
-              <Typography variant="body1">Total Forms</Typography>
+              <Typography variant="body2">Total Forms</Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3, textAlign: 'center', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
-              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+          <Grid item xs={12} sm={4}>
+            <Paper sx={{ 
+              p: isMobile ? 2 : 3, 
+              textAlign: 'center', 
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', 
+              color: 'white',
+              borderRadius: 2
+            }}>
+              <Typography variant={isMobile ? "h5" : "h4"} sx={{ fontWeight: 'bold' }}>
                 {responses.length}
               </Typography>
-              <Typography variant="body1">Total Responses</Typography>
+              <Typography variant="body2">Total Responses</Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3, textAlign: 'center', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
-              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                {selectedForm ? selectedForm.title : 'Select Form'}
+          <Grid item xs={12} sm={4}>
+            <Paper sx={{ 
+              p: isMobile ? 2 : 3, 
+              textAlign: 'center', 
+              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', 
+              color: 'white',
+              borderRadius: 2
+            }}>
+              <Typography variant={isMobile ? "h6" : "h4"} sx={{ fontWeight: 'bold' }}>
+                {selectedForm ? (isMobile ? "Active" : selectedForm.title) : 'Select Form'}
               </Typography>
-              <Typography variant="body1">Active Analysis</Typography>
+              <Typography variant="body2">Active Analysis</Typography>
             </Paper>
           </Grid>
         </Grid>
 
-        <Grid container spacing={3}>
+        {/* Main Content Grid */}
+        <Grid container spacing={isMobile ? 2 : 3}>
           {/* Forms Section */}
-          <Grid item xs={12} md={selectedForm ? 6 : 12}>
-            <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: '#2d3748' }}>
+          <Grid item xs={12} md={isMobile || !selectedForm ? 12 : 6}>
+            <Paper sx={{ p: isMobile ? 2 : 3, borderRadius: 2, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                mb: 3,
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? 2 : 0
+              }}>
+                <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 600, color: '#2d3748' }}>
                   Your Forms
                 </Typography>
-                <Button 
-                  variant="contained" 
-                  startIcon={<AddIcon />}
-                  onClick={onCreateForm}
-                  sx={{ 
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    borderRadius: 2,
-                    px: 3
-                  }}
-                >
-                  Create New Form
-                </Button>
+                {!isMobile && (
+                  <Button 
+                    variant="contained" 
+                    startIcon={<AddIcon />}
+                    onClick={onCreateForm}
+                    sx={{ 
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: 2,
+                      px: 3
+                    }}
+                  >
+                    Create New Form
+                  </Button>
+                )}
               </Box>
 
               {forms.length === 0 ? (
@@ -229,16 +423,26 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
                           borderRadius: 2
                         }}
                       >
-                        <CardContent sx={{ p: 3 }}>
+                        <CardContent sx={{ p: isMobile ? 2 : 3 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#2d3748' }}>
+                            <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontWeight: 600, color: '#2d3748', flex: 1 }}>
                               {form.title}
                             </Typography>
-                            <Chip 
-                              label={`${form.questions.length} Questions`} 
-                              size="small"
-                              sx={{ bgcolor: '#e6fffa', color: '#065f46' }}
-                            />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Chip 
+                                label={`${form.questions.length} Q`} 
+                                size="small"
+                                sx={{ bgcolor: '#e6fffa', color: '#065f46' }}
+                              />
+                              {isMobile && (
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => handleFormMenuClick(e, form.id)}
+                                >
+                                  <MoreVertIcon />
+                                </IconButton>
+                              )}
+                            </Box>
                           </Box>
                           
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -253,39 +457,73 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
                             />
                           </Box>
 
-                          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                          {!isMobile ? (
+                            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<VisibilityIcon />}
+                                onClick={() => handleViewResponses(form)}
+                                sx={{ borderRadius: 2 }}
+                              >
+                                View Responses
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<LinkIcon />}
+                                onClick={() => window.open(`/form/${form.id}`, '_blank')}
+                                sx={{ borderRadius: 2 }}
+                              >
+                                Preview
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<FileCopyIcon />}
+                                onClick={() => handleCopyLink(form.id)}
+                                sx={{ 
+                                  bgcolor: copySuccess[form.id] ? '#10b981' : '#059669',
+                                  '&:hover': { bgcolor: '#047857' },
+                                  borderRadius: 2
+                                }}
+                              >
+                                {copySuccess[form.id] ? 'Copied!' : 'Copy Link'}
+                              </Button>
+                            </Stack>
+                          ) : (
                             <Button
-                              size="small"
+                              fullWidth
                               variant="outlined"
-                              startIcon={<VisibilityIcon />}
+                              startIcon={<BarChartIcon />}
                               onClick={() => handleViewResponses(form)}
                               sx={{ borderRadius: 2 }}
                             >
-                              View Responses
+                              View Analytics
                             </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              startIcon={<LinkIcon />}
-                              onClick={() => window.open(`/form/${form.id}`, '_blank')}
-                              sx={{ borderRadius: 2 }}
-                            >
-                              Preview
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="contained"
-                              startIcon={<LinkIcon />}
-                              onClick={() => handleCopyLink(form.id)}
-                              sx={{ 
-                                bgcolor: copySuccess[form.id] ? '#10b981' : '#059669',
-                                '&:hover': { bgcolor: '#047857' },
-                                borderRadius: 2
-                              }}
-                            >
-                              {copySuccess[form.id] ? 'Copied!' : 'Copy Link'}
-                            </Button>
-                          </Stack>
+                          )}
+
+                          {/* Mobile Menu */}
+                          <Menu
+                            anchorEl={formMenuAnchor[form.id]}
+                            open={Boolean(formMenuAnchor[form.id])}
+                            onClose={() => handleFormMenuClose(form.id)}
+                          >
+                            <MenuItem onClick={() => {
+                              window.open(`/form/${form.id}`, '_blank');
+                              handleFormMenuClose(form.id);
+                            }}>
+                              <ListItemIcon><LinkIcon /></ListItemIcon>
+                              <ListItemText>Preview Form</ListItemText>
+                            </MenuItem>
+                            <MenuItem onClick={() => {
+                              handleCopyLink(form.id);
+                              handleFormMenuClose(form.id);
+                            }}>
+                              <ListItemIcon><ShareIcon /></ListItemIcon>
+                              <ListItemText>Share Link</ListItemText>
+                            </MenuItem>
+                          </Menu>
 
                           <Divider sx={{ my: 2 }} />
                           <Typography variant="caption" sx={{ color: '#6b7280', wordBreak: 'break-all' }}>
@@ -300,8 +538,8 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
             </Paper>
           </Grid>
 
-          {/* Enhanced Summary Section */}
-          {selectedForm && (
+          {/* Desktop Analytics Section */}
+          {!isMobile && selectedForm && (
             <Grid item xs={12} md={6}>
               <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -326,87 +564,35 @@ const Dashboard = ({ user, onLogout, onCreateForm }) => {
                     </Button>
                   )}
                 </Box>
-                
-                {responses.length === 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <AssessmentIcon sx={{ fontSize: 64, color: '#cbd5e0', mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary">
-                      No responses yet
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Share your form to start collecting feedback
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Box>
-                    <Box sx={{ mb: 3, p: 2, bgcolor: '#f7fafc', borderRadius: 2 }}>
-                      <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#2d3748' }}>
-                        {responses.length}
-                      </Typography>
-                      <Typography variant="body1" color="text.secondary">
-                        Total Responses Collected
-                      </Typography>
-                    </Box>
-                    
-                    {summaryData.map((questionSummary, index) => (
-                      <Box key={index} sx={{ mb: 4 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#2d3748' }}>
-                          {index + 1}. {questionSummary.question}
-                        </Typography>
-                        
-                        {questionSummary.type === 'multiple_choice' ? (
-                          <Box sx={{ pl: 2 }}>
-                            {questionSummary.options.map((option, optionIndex) => (
-                              <Box key={optionIndex} sx={{ mb: 2 }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                    {option.option}
-                                  </Typography>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                      {option.count} votes
-                                    </Typography>
-                                    <Chip 
-                                      label={`${option.percentage}%`} 
-                                      size="small" 
-                                      sx={{ bgcolor: '#dbeafe', color: '#1e40af' }}
-                                    />
-                                  </Box>
-                                </Box>
-                                <LinearProgress 
-                                  variant="determinate" 
-                                  value={parseFloat(option.percentage)} 
-                                  sx={{ 
-                                    height: 8, 
-                                    borderRadius: 4,
-                                    bgcolor: '#e5e7eb',
-                                    '& .MuiLinearProgress-bar': {
-                                      bgcolor: '#3b82f6'
-                                    }
-                                  }}
-                                />
-                              </Box>
-                            ))}
-                          </Box>
-                        ) : (
-                          <Box sx={{ pl: 2, maxHeight: 200, overflowY: 'auto' }}>
-                            {questionSummary.textResponses.map((response, responseIndex) => (
-                              <Box key={responseIndex} sx={{ mb: 1, p: 2, bgcolor: '#f9fafb', borderRadius: 1, borderLeft: '4px solid #3b82f6' }}>
-                                <Typography variant="body2">
-                                  {response}
-                                </Typography>
-                              </Box>
-                            ))}
-                          </Box>
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-                )}
+                {renderAnalyticsContent()}
               </Paper>
             </Grid>
           )}
         </Grid>
+
+        {/* Mobile FAB */}
+        {isMobile && (
+          <Zoom in={true}>
+            <Fab
+              color="primary"
+              onClick={onCreateForm}
+              sx={{
+                position: 'fixed',
+                bottom: 20,
+                right: 20,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                }
+              }}
+            >
+              <AddIcon />
+            </Fab>
+          </Zoom>
+        )}
+
+        {/* Mobile Analytics Drawer */}
+        {isMobile && <AnalyticsDrawer />}
       </Container>
     </Box>
   );
